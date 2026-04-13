@@ -1,0 +1,959 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PDA Simulator</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=Bebas+Neue&family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --cream: #f5f0e8; --ivory: #faf7f2; --paper: #ede8df;
+    --ink: #0f0e0c; --ink2: #2a2825;
+    --gold: #b8965a; --gold2: #d4aa70;
+    --sage: #7a8c7e; --rust: #9b4a3a; --sky: #4a7a8c;
+    --muted: #8a8278; --border: #d8d0c4; --border2: #c4bbb0;
+    --serif: 'Cormorant Garamond', Georgia, serif;
+    --display: 'Bebas Neue', sans-serif;
+    --mono: 'DM Mono', 'Courier New', monospace;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:var(--cream); color:var(--ink); font-family:var(--serif); min-height:100vh; position:relative; }
+  body::before {
+    content:''; position:fixed; inset:0;
+    background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events:none; z-index:999; opacity:0.5;
+  }
+
+  /* HEADER */
+  header { border-bottom:1px solid var(--ink); padding:0 48px; background:var(--ivory); position:sticky; top:0; z-index:100; }
+  .header-top { display:flex; align-items:center; justify-content:space-between; padding:10px 0 6px; border-bottom:1px solid var(--border); }
+  .header-dateline { font-family:var(--mono); font-size:9px; letter-spacing:3px; text-transform:uppercase; color:var(--muted); }
+  .header-tags { display:flex; gap:20px; }
+  .htag { font-family:var(--mono); font-size:9px; letter-spacing:2px; text-transform:uppercase; color:var(--muted); }
+  .htag.gold { color:var(--gold); }
+  .header-main { display:flex; align-items:center; justify-content:center; padding:8px 0; }
+  .logo { font-family:var(--display); font-size:52px; letter-spacing:12px; color:var(--ink); line-height:1; }
+  .logo-sub { font-family:var(--serif); font-style:italic; font-size:12px; color:var(--gold); letter-spacing:4px; text-align:center; display:block; margin-top:-4px; }
+  .header-rule { display:flex; align-items:center; gap:12px; padding:6px 0; }
+  .header-rule::before,.header-rule::after { content:''; flex:1; height:1px; background:var(--ink); }
+  .header-rule span { font-family:var(--mono); font-size:8px; letter-spacing:4px; text-transform:uppercase; color:var(--muted); }
+
+  /* LAYOUT */
+  .main-grid { display:grid; grid-template-columns:340px 1fr; min-height:calc(100vh - 120px); }
+  .sidebar { border-right:1px solid var(--border2); padding:24px 20px; display:flex; flex-direction:column; gap:20px; overflow-y:auto; max-height:calc(100vh - 120px); background:var(--ivory); }
+  .content { padding:24px 28px; display:flex; flex-direction:column; gap:18px; background:var(--cream); }
+
+  .section-title { font-family:var(--display); font-size:13px; letter-spacing:4px; color:var(--ink2); margin-bottom:12px; display:flex; align-items:center; gap:10px; }
+  .section-title::after { content:''; flex:1; height:1px; background:var(--border2); }
+  .section-note { font-family:var(--serif); font-style:italic; font-size:11px; color:var(--muted); margin-bottom:12px; display:block; margin-top:-6px; }
+
+  .panel { background:var(--ivory); border:1px solid var(--border); padding:16px; }
+  .panel-gold { border-color:var(--gold); position:relative; }
+  .panel-gold::before { content:''; position:absolute; top:3px; left:3px; right:3px; bottom:3px; border:1px solid rgba(184,150,90,0.2); pointer-events:none; }
+
+  label { font-family:var(--display); font-size:10px; letter-spacing:3px; color:var(--muted); display:block; margin-bottom:5px; }
+  input, select { width:100%; background:var(--cream); border:none; border-bottom:1px solid var(--border2); color:var(--ink); padding:7px 4px; font-family:var(--mono); font-size:12px; outline:none; transition:border-color 0.2s; border-radius:0; appearance:none; }
+  input:focus, select:focus { border-bottom-color:var(--gold); }
+  select { cursor:pointer; }
+  .form-row { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:12px; }
+  .form-row-3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; margin-bottom:12px; }
+  .form-full { margin-bottom:12px; }
+
+  /* BUTTONS */
+  .btn { padding:8px 18px; border:1px solid var(--ink); cursor:pointer; font-family:var(--display); font-size:12px; letter-spacing:3px; transition:all 0.18s; display:inline-flex; align-items:center; gap:7px; background:transparent; color:var(--ink); border-radius:0; text-transform:uppercase; }
+  .btn:hover { background:var(--ink); color:var(--ivory); }
+  .btn-primary { background:var(--ink); color:var(--ivory); }
+  .btn-primary:hover { background:var(--ink2); }
+  .btn-gold { background:var(--gold); color:var(--ivory); border-color:var(--gold); }
+  .btn-gold:hover { background:var(--gold2); border-color:var(--gold2); }
+  .btn-success { background:var(--sage); color:var(--ivory); border-color:var(--sage); }
+  .btn-success:hover { background:#5c6e60; }
+  .btn-back { background:var(--sky); color:var(--ivory); border-color:var(--sky); }
+  .btn-back:hover { background:#3a6478; }
+  .btn-outline { background:transparent; border:1px solid var(--border2); color:var(--ink2); }
+  .btn-outline:hover { background:var(--ink); color:var(--ivory); border-color:var(--ink); }
+  .btn-danger { background:transparent; border:1px solid var(--border2); color:var(--muted); padding:3px 7px; font-size:10px; letter-spacing:1px; }
+  .btn-danger:hover { border-color:var(--rust); color:var(--rust); }
+  .btn:disabled { opacity:0.3; cursor:not-allowed; }
+  .btn:disabled:hover { background:transparent; color:var(--ink); }
+  .btn-primary:disabled:hover,.btn-gold:disabled:hover,.btn-success:disabled:hover,.btn-back:disabled:hover { background:var(--ink); color:var(--ivory); }
+  .btn-gold:disabled:hover { background:var(--gold); }
+  .btn-success:disabled:hover { background:var(--sage); }
+  .btn-back:disabled:hover { background:var(--sky); }
+
+  /* PDA TYPE BADGE */
+  .pda-type-bar { display:flex; align-items:center; gap:10px; margin-bottom:14px; }
+  .pda-badge { font-family:var(--display); font-size:11px; letter-spacing:3px; padding:4px 12px; border:1px solid var(--border2); color:var(--muted); }
+  .pda-badge.dpda { border-color:var(--sage); color:var(--sage); background:rgba(122,140,126,0.08); }
+  .pda-badge.npda { border-color:var(--gold); color:var(--gold); background:rgba(184,150,90,0.08); }
+  .pda-desc { font-family:var(--serif); font-style:italic; font-size:11px; color:var(--muted); }
+
+  /* PRESETS */
+  .preset-strip { display:flex; gap:0; border:1px solid var(--border2); }
+  .preset-btn { flex:1; padding:8px 4px; background:transparent; border:none; border-right:1px solid var(--border2); color:var(--muted); font-family:var(--display); font-size:10px; letter-spacing:2px; cursor:pointer; transition:all 0.18s; text-transform:uppercase; }
+  .preset-btn:last-child { border-right:none; }
+  .preset-btn:hover { background:var(--ink); color:var(--ivory); }
+  .preset-btn.active { background:var(--gold); color:var(--ivory); }
+
+  /* TRANSITION LIST */
+  .transition-list { display:flex; flex-direction:column; gap:4px; max-height:180px; overflow-y:auto; }
+  .transition-item { background:var(--cream); border:1px solid var(--border); border-left:3px solid transparent; padding:6px 10px; font-family:var(--mono); font-size:10px; display:flex; align-items:center; justify-content:space-between; gap:5px; transition:all 0.15s; animation:slideIn 0.2s ease; }
+  .transition-item:hover { border-left-color:var(--gold); }
+  .transition-item.active-transition { border-color:var(--gold); border-left-color:var(--gold); background:rgba(184,150,90,0.06); }
+  @keyframes slideIn { from{opacity:0;transform:translateX(-8px)} to{opacity:1;transform:translateX(0)} }
+  .t-from{color:var(--ink);font-weight:500;} .t-arrow{color:var(--gold);} .t-to{color:var(--sage);font-weight:500;} .t-label{color:var(--muted);font-size:9px;flex:1;}
+  .no-transitions { text-align:center; color:var(--border2); font-family:var(--serif); font-style:italic; font-size:12px; padding:10px; }
+
+  /* DIAGRAM */
+  .diagram-area { background:var(--ivory); border:1px solid var(--border); padding:18px; min-height:290px; position:relative; overflow:hidden; }
+  .diagram-corner { position:absolute; width:14px; height:14px; border-color:var(--gold); border-style:solid; }
+  .dc-tl{top:7px;left:7px;border-width:1px 0 0 1px;} .dc-tr{top:7px;right:7px;border-width:1px 1px 0 0;}
+  .dc-bl{bottom:7px;left:7px;border-width:0 0 1px 1px;} .dc-br{bottom:7px;right:7px;border-width:0 1px 1px 0;}
+  .states-canvas { width:100%; height:230px; position:relative; }
+  .state-node { position:absolute; width:54px; height:54px; border-radius:50%; border:1px solid var(--border2); display:flex; align-items:center; justify-content:center; font-family:var(--display); font-size:13px; letter-spacing:1px; cursor:default; transition:all 0.3s ease; background:var(--cream); user-select:none; color:var(--ink2); }
+  .state-node.start-state { border-color:var(--gold); box-shadow:0 0 0 3px rgba(184,150,90,0.12); }
+  .state-node.accept-state { border-color:var(--sage); outline:1px solid var(--sage); outline-offset:4px; }
+  .state-node.current-state { background:var(--ink); color:var(--ivory); border-color:var(--ink); box-shadow:0 4px 18px rgba(15,14,12,0.22); transform:scale(1.12); }
+  .state-node.reject-state { border-color:var(--rust); background:rgba(155,74,58,0.08); color:var(--rust); }
+
+  /* VIZ GRID */
+  .viz-grid { display:grid; grid-template-columns:1fr 200px; gap:18px; }
+
+  /* STACK */
+  .stack-panel { background:var(--ivory); border:1px solid var(--border); padding:14px; display:flex; flex-direction:column; gap:8px; }
+  .stack-header { display:flex; justify-content:space-between; align-items:center; }
+  .stack-op-badge { font-family:var(--display); font-size:10px; letter-spacing:3px; padding:2px 8px; border:1px solid var(--border); }
+  .op-push{border-color:var(--sage);color:var(--sage);} .op-pop{border-color:var(--rust);color:var(--rust);} .op-none{border-color:var(--border);color:var(--muted);}
+
+  /* Stack string view */
+  .stack-string-view { background:var(--cream); border:1px solid var(--border); padding:8px 10px; font-family:var(--mono); font-size:12px; color:var(--ink); letter-spacing:2px; text-align:center; min-height:32px; display:flex; align-items:center; justify-content:center; gap:0; flex-wrap:wrap; }
+  .ss-char { display:inline-block; padding:1px 3px; transition:all 0.2s; }
+  .ss-char.ss-top { color:var(--gold); font-weight:500; border-bottom:1px solid var(--gold); }
+  .ss-char.ss-new { color:var(--sage); animation:ssNew 0.35s ease; }
+  @keyframes ssNew { from{opacity:0;transform:translateY(-4px)} to{opacity:1;transform:translateY(0)} }
+  .ss-arrow { color:var(--border2); font-size:10px; margin:0 4px; }
+  .ss-label { font-family:var(--display); font-size:9px; letter-spacing:3px; color:var(--muted); display:flex; justify-content:space-between; }
+
+  /* Cell stack */
+  .stack-container { flex:1; display:flex; flex-direction:column; justify-content:flex-end; gap:3px; min-height:140px; padding:6px; background:var(--cream); border:1px solid var(--border); }
+  .stack-cell { background:var(--ivory); border:1px solid var(--border); border-left:3px solid transparent; padding:7px 6px; text-align:center; font-family:var(--display); font-size:16px; letter-spacing:2px; color:var(--ink); transition:all 0.3s; }
+  .stack-cell.top-cell { border-left-color:var(--gold); background:rgba(184,150,90,0.05); }
+  .stack-cell.push-anim { animation:pushAnim 0.35s ease; border-left-color:var(--sage); }
+  @keyframes pushAnim { from{transform:translateY(-10px);opacity:0} to{transform:translateY(0);opacity:1} }
+  .stack-bottom-line { text-align:center; font-family:var(--mono); font-size:9px; color:var(--muted); padding-top:4px; border-top:1px dashed var(--border2); letter-spacing:2px; }
+  .stack-top-label { font-family:var(--mono); font-size:9px; color:var(--muted); letter-spacing:1px; }
+  .empty-state { text-align:center; color:var(--border2); font-family:var(--serif); font-style:italic; font-size:12px; padding:16px 0; }
+
+  /* TAPE */
+  .tape-panel { background:var(--ivory); border:1px solid var(--border); padding:14px; }
+  .tape-display { display:flex; gap:3px; align-items:center; flex-wrap:wrap; margin-top:10px; }
+  .tape-cell { width:36px; height:36px; border:1px solid var(--border); display:flex; align-items:center; justify-content:center; font-family:var(--display); font-size:17px; letter-spacing:1px; background:var(--cream); color:var(--ink); transition:all 0.22s; position:relative; }
+  .tape-cell.processed { background:var(--paper); color:var(--muted); border-color:var(--border); }
+  .tape-cell.current { background:var(--ink); color:var(--ivory); border-color:var(--ink); }
+  .tape-cell.current::after { content:'▾'; position:absolute; top:-15px; font-size:10px; color:var(--gold); }
+
+  /* INPUT + CONTROLS */
+  .input-bar { background:var(--ivory); border:1px solid var(--border); padding:14px 18px; display:flex; gap:18px; align-items:flex-end; }
+  .controls-bar { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+  .speed-wrap { margin-left:auto; display:flex; align-items:center; gap:10px; }
+  .speed-wrap label { margin:0; }
+  input[type=range] { width:80px; accent-color:var(--gold); border:none; padding:0; background:transparent; }
+
+  /* RESULT */
+  .result-banner { padding:9px 16px; font-family:var(--display); font-size:12px; letter-spacing:3px; display:none; align-items:center; gap:10px; border:1px solid; }
+  .result-banner.accepted { display:flex; border-color:var(--sage); color:var(--sage); background:rgba(122,140,126,0.06); }
+  .result-banner.rejected { display:flex; border-color:var(--rust); color:var(--rust); background:rgba(155,74,58,0.06); }
+
+  /* LOG */
+  .log-panel { background:var(--ivory); border:1px solid var(--border); padding:14px; max-height:140px; overflow-y:auto; }
+  .log-entry { font-family:var(--mono); font-size:10px; padding:3px 0; border-bottom:1px solid rgba(200,190,180,0.35); display:flex; gap:10px; }
+  .log-entry:last-child { border-bottom:none; }
+  .log-step { color:var(--border2); min-width:50px; font-size:9px; letter-spacing:1px; }
+  .log-text { color:var(--ink2); }
+  .log-entry.log-accept .log-text { color:var(--sage); font-style:italic; }
+  .log-entry.log-reject .log-text { color:var(--rust); font-style:italic; }
+  .log-entry.log-move .log-text { color:var(--ink); }
+
+  .divider-gold { height:1px; background:linear-gradient(90deg,transparent,var(--gold),transparent); margin:4px 0; }
+  .trans-count { font-family:var(--mono); font-size:9px; color:var(--muted); margin-left:4px; }
+  ::-webkit-scrollbar{width:4px;} ::-webkit-scrollbar-track{background:var(--cream);} ::-webkit-scrollbar-thumb{background:var(--border2);}
+
+  /* MODE SELECTOR */
+  .mode-selector { display:grid; grid-template-columns:1fr 1fr; gap:0; border:1px solid var(--border2); margin-bottom:14px; }
+  .mode-btn { padding:10px 8px; background:transparent; border:none; border-right:1px solid var(--border2); cursor:pointer; font-family:var(--display); font-size:12px; letter-spacing:3px; color:var(--muted); transition:all 0.18s; text-align:center; }
+  .mode-btn:last-child { border-right:none; }
+  .mode-btn.active-dpda { background:var(--sage); color:var(--ivory); }
+  .mode-btn.active-npda { background:var(--gold); color:var(--ivory); }
+  .mode-btn:not(.active-dpda):not(.active-npda):hover { background:var(--ink); color:var(--ivory); }
+  .mode-subtitle { font-family:var(--serif); font-style:italic; font-size:11px; color:var(--muted); text-align:center; margin-bottom:12px; }
+
+  /* ANALYSIS PANEL */
+  .analysis-box { background:var(--cream); border:1px solid var(--border); padding:12px; margin-top:10px; }
+  .analysis-status { display:flex; align-items:center; gap:8px; margin-bottom:8px; }
+  .status-icon { font-size:14px; }
+  .status-label { font-family:var(--display); font-size:11px; letter-spacing:3px; }
+  .status-label.ok { color:var(--sage); }
+  .status-label.warn { color:var(--gold); }
+  .status-label.err { color:var(--rust); }
+  .analysis-detail { font-family:var(--mono); font-size:9px; color:var(--muted); line-height:1.7; }
+  .analysis-detail .conflict { color:var(--rust); }
+  .analysis-detail .ok-item { color:var(--sage); }
+  .analysis-detail .info-item { color:var(--sky); }
+  .can-badge { display:inline-block; font-family:var(--display); font-size:9px; letter-spacing:2px; padding:2px 7px; border:1px solid; margin:2px; }
+  .can-dpda { border-color:var(--sage); color:var(--sage); }
+  .can-npda { border-color:var(--gold); color:var(--gold); }
+  .cannot { border-color:var(--rust); color:var(--rust); opacity:0.6; }
+  .analysis-caps { margin-top:8px; padding-top:8px; border-top:1px dashed var(--border2); }
+  .caps-label { font-family:var(--display); font-size:9px; letter-spacing:2px; color:var(--muted); margin-bottom:4px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-top">
+    <span class="header-dateline">Pushdown Automaton Studio · Theory of Computation</span>
+    <div class="header-tags">
+      <span class="htag gold">Context-Free Languages</span>
+      <span class="htag">Stack · States · Transitions</span>
+    </div>
+  </div>
+  <div class="header-main">
+    <div>
+      <div class="logo">PDA&nbsp;&nbsp;SIM</div>
+      <span class="logo-sub">Automata Visualizer</span>
+    </div>
+  </div>
+  <div class="header-rule"><span>configure · simulate · observe</span></div>
+</header>
+
+<div class="main-grid">
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+
+    <div>
+      <div class="section-title">Presets</div>
+      <div class="preset-strip">
+        <button class="preset-btn active" id="preset-anbn" onclick="loadPreset('anbn')">aⁿbⁿ</button>
+        <button class="preset-btn" id="preset-palindrome" onclick="loadPreset('palindrome')">Palindrome</button>
+        <button class="preset-btn" id="preset-balanced" onclick="loadPreset('balanced')">Balanced ()</button>
+      </div>
+    </div>
+
+    <div class="divider-gold"></div>
+
+    <!-- PDA MODE + ANALYSIS -->
+    <div class="panel">
+      <div class="section-title">PDA Mode</div>
+
+      <!-- Mode toggle -->
+      <div class="mode-selector">
+        <button class="mode-btn" id="mode-btn-dpda" onclick="setMode('dpda')">DPDA</button>
+        <button class="mode-btn" id="mode-btn-npda" onclick="setMode('npda')">NPDA</button>
+      </div>
+      <div class="mode-subtitle" id="mode-subtitle">Select a mode to begin</div>
+
+      <!-- Live analysis -->
+      <div class="analysis-box" id="analysis-box">
+        <div class="analysis-status">
+          <span class="status-icon" id="analysis-icon">○</span>
+          <span class="status-label" id="analysis-label">No mode selected</span>
+        </div>
+        <div class="analysis-detail" id="analysis-detail">Choose DPDA or NPDA above, then add transitions. The analyser will tell you if your PDA satisfies the chosen type.</div>
+        <div class="analysis-caps" id="analysis-caps" style="display:none;">
+          <div class="caps-label">This PDA can be:</div>
+          <div id="caps-badges"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CONFIG -->
+    <div class="panel panel-gold">
+      <div class="section-title">Configuration</div>
+      <span class="section-note">Define your automaton's structure</span>
+      <div class="form-row">
+        <div><label>States</label><input id="states-input" value="q0,q1,q2" placeholder="q0,q1,q2"></div>
+        <div><label>Start State</label><input id="start-state" value="q0" placeholder="q0"></div>
+      </div>
+      <div class="form-full"><label>Accept States</label><input id="accept-states" value="q2" placeholder="q2,q3"></div>
+      <div class="form-full"><label>Stack Bottom Symbol</label><input id="init-stack" value="Z" placeholder="Z" style="max-width:70px;"></div>
+      <button class="btn btn-primary" onclick="applyConfig()" style="width:100%;justify-content:center;margin-top:4px;">Apply Configuration</button>
+    </div>
+
+    <!-- ADD TRANSITION -->
+    <div class="panel">
+      <div class="section-title">Add Transition</div>
+      <div class="form-row">
+        <div><label>From</label><select id="t-from"></select></div>
+        <div><label>To</label><select id="t-to"></select></div>
+      </div>
+      <div class="form-row-3">
+        <div><label>Input (ε=∅)</label><input id="t-input" placeholder="a" maxlength="2"></div>
+        <div><label>Pop</label><input id="t-pop" placeholder="Z" maxlength="2"></div>
+        <div><label>Push</label><input id="t-push" placeholder="AZ" maxlength="5"></div>
+      </div>
+      <button class="btn btn-gold" onclick="addTransition()" style="width:100%;justify-content:center;">+ Add Transition</button>
+    </div>
+
+    <!-- TRANSITIONS LIST -->
+    <div class="panel">
+      <div class="section-title">Transitions <span class="trans-count">(<span id="trans-count">0</span>)</span></div>
+      <div class="transition-list" id="transition-list">
+        <div class="no-transitions">No transitions defined</div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- CONTENT -->
+  <div class="content">
+
+    <!-- Input bar -->
+    <div class="input-bar">
+      <div style="flex:1;">
+        <label>Input String</label>
+        <input id="input-string" placeholder="e.g. aabb — leave empty for ε" style="font-size:15px;padding:8px 4px;font-family:var(--display);letter-spacing:4px;">
+      </div>
+      <div class="speed-wrap">
+        <label>Speed</label>
+        <input type="range" id="speed" min="200" max="2000" value="800" step="100">
+      </div>
+    </div>
+
+    <!-- Controls -->
+    <div class="controls-bar">
+      <button class="btn btn-success" id="btn-start" onclick="startSimulation()">▶ Run</button>
+      <button class="btn btn-back" id="btn-back" onclick="backStep()" disabled>← Back</button>
+      <button class="btn btn-outline" id="btn-step" onclick="stepSimulation()" disabled>Step →</button>
+      <button class="btn btn-gold" id="btn-auto" onclick="toggleAuto()" disabled>Auto ⚡</button>
+      <button class="btn btn-outline" id="btn-reset" onclick="resetSimulation()">↺ Reset</button>
+      <div id="result-banner" class="result-banner"></div>
+    </div>
+
+    <!-- Diagram + Stack -->
+    <div class="viz-grid">
+      <div class="diagram-area">
+        <div class="dc-tl diagram-corner"></div><div class="dc-tr diagram-corner"></div>
+        <div class="dc-bl diagram-corner"></div><div class="dc-br diagram-corner"></div>
+        <div class="section-title" style="margin-bottom:8px;">State Diagram</div>
+        <div class="states-canvas" id="states-canvas">
+          <svg id="transitions-svg" style="position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;"></svg>
+        </div>
+      </div>
+
+      <div class="stack-panel">
+        <div class="stack-header">
+          <div class="section-title" style="margin:0;font-size:11px;">Stack</div>
+          <span id="stack-op-badge" class="stack-op-badge op-none">idle</span>
+        </div>
+
+        <!-- String representation -->
+        <div>
+          <div class="ss-label"><span>bottom</span><span>top →</span></div>
+          <div class="stack-string-view" id="stack-string">
+            <span style="font-family:var(--serif);font-style:italic;color:var(--border2);font-size:12px;">empty</span>
+          </div>
+        </div>
+
+        <!-- Cell view -->
+        <div class="stack-container" id="stack-container">
+          <div class="empty-state">empty</div>
+        </div>
+        <div class="stack-bottom-line">⊥ bottom</div>
+        <div class="stack-top-label">Top → <span id="stack-top">—</span></div>
+      </div>
+    </div>
+
+    <!-- Tape -->
+    <div class="tape-panel">
+      <div class="section-title">Input Tape</div>
+      <div class="tape-display" id="tape-display">
+        <span style="font-family:var(--serif);font-style:italic;color:var(--muted);font-size:13px;">Enter a string above and press Run</span>
+      </div>
+    </div>
+
+    <!-- Log -->
+    <div class="log-panel">
+      <div class="section-title" style="margin-bottom:8px;">Execution Log</div>
+      <div id="log-container">
+        <div class="log-entry"><span class="log-step">—</span><span class="log-text" style="font-style:italic;color:var(--muted);">Awaiting simulation…</span></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ===== STATE =====
+let states = ['q0','q1','q2'];
+let startState = 'q0';
+let acceptStates = ['q2'];
+let initStack = 'Z';
+let transitions = [];
+let stack = [];
+let currentState = null;
+let inputStr = '';
+let inputHead = 0;
+let simSteps = [];
+let simIndex = 0;
+let autoTimer = null;
+let autoRunning = false;
+let running = false;
+let nodePositions = {};
+
+// ===== PDA MODE + ANALYSIS =====
+let pdaMode = null; // 'dpda' | 'npda' | null
+
+function setMode(mode) {
+  pdaMode = mode;
+  document.getElementById('mode-btn-dpda').className = 'mode-btn' + (mode==='dpda' ? ' active-dpda' : '');
+  document.getElementById('mode-btn-npda').className = 'mode-btn' + (mode==='npda' ? ' active-npda' : '');
+  document.getElementById('mode-subtitle').textContent =
+    mode === 'dpda' ? 'Deterministic — at most one move per configuration' :
+                      'Nondeterministic — multiple moves allowed';
+  analysePDA();
+}
+
+// Returns {isDPDA, isNPDA, conflicts, epsilonConflicts}
+function checkPDAProperties() {
+  const conflicts = [];        // duplicate (state,input,pop) keys
+  const epsilonConflicts = []; // ε vs real-input clashes on (state,pop)
+  const seen = new Set();
+
+  for (const t of transitions) {
+    const key = `${t.from}|${t.input}|${t.pop}`;
+    if (seen.has(key)) {
+      conflicts.push(`(${t.from}, ${t.input}, ${t.pop})`);
+    } else {
+      seen.add(key);
+    }
+  }
+
+  // ε-conflict: ε-transition AND a real-input transition on same (state, pop)
+  for (const t of transitions) {
+    if (t.input === 'ε') {
+      const clash = transitions.filter(t2 =>
+        t2.from === t.from && t2.pop === t.pop && t2.input !== 'ε'
+      );
+      if (clash.length > 0) {
+        const key = `${t.from}|${t.pop}`;
+        if (!epsilonConflicts.some(e => e.key === key)) {
+          epsilonConflicts.push({ key, state: t.from, pop: t.pop, realInputs: clash.map(c=>c.input) });
+        }
+      }
+    }
+  }
+
+  const isDPDA = conflicts.length === 0 && epsilonConflicts.length === 0;
+  const isNPDA = true; // any set of transitions forms a valid NPDA
+  return { isDPDA, isNPDA, conflicts: [...new Set(conflicts)], epsilonConflicts };
+}
+
+function analysePDA() {
+  const icon  = document.getElementById('analysis-icon');
+  const label = document.getElementById('analysis-label');
+  const detail = document.getElementById('analysis-detail');
+  const capsDiv = document.getElementById('analysis-caps');
+  const capsBadges = document.getElementById('caps-badges');
+
+  if (transitions.length === 0) {
+    icon.textContent = '○';
+    label.className = 'status-label';
+    label.textContent = 'No transitions yet';
+    detail.innerHTML = '<span class="info-item">Add transitions to analyse your PDA.</span>';
+    capsDiv.style.display = 'none';
+    return;
+  }
+
+  const { isDPDA, conflicts, epsilonConflicts } = checkPDAProperties();
+
+  // Always show what this PDA CAN be
+  capsDiv.style.display = 'block';
+  capsBadges.innerHTML =
+    `<span class="can-badge ${isDPDA ? 'can-dpda' : 'cannot'}">${isDPDA ? '✓' : '✗'} DPDA</span>` +
+    `<span class="can-badge can-npda">✓ NPDA</span>`;
+
+  if (!pdaMode) {
+    icon.textContent = '◎';
+    label.className = 'status-label warn';
+    label.textContent = 'No mode selected';
+    detail.innerHTML = '<span class="info-item">Select DPDA or NPDA mode above.</span>';
+    return;
+  }
+
+  if (pdaMode === 'dpda') {
+    if (isDPDA) {
+      icon.textContent = '✓';
+      label.className = 'status-label ok';
+      label.textContent = 'Valid DPDA';
+      let html = '<span class="ok-item">All transitions are deterministic.</span><br>';
+      html += `<span class="ok-item">No duplicate (state, input, stack) combos.</span><br>`;
+      html += `<span class="ok-item">No ε / real-input conflicts.</span>`;
+      detail.innerHTML = html;
+    } else {
+      icon.textContent = '✗';
+      label.className = 'status-label err';
+      label.textContent = 'Not a valid DPDA';
+      let html = '';
+      if (conflicts.length > 0) {
+        html += `<span class="conflict">Duplicate transitions on:</span><br>`;
+        conflicts.forEach(c => { html += `&nbsp;&nbsp;• <span class="conflict">${c}</span><br>`; });
+      }
+      if (epsilonConflicts.length > 0) {
+        html += `<span class="conflict">ε / real-input clashes:</span><br>`;
+        epsilonConflicts.forEach(e => {
+          html += `&nbsp;&nbsp;• state <span class="conflict">${e.state}</span>, stack <span class="conflict">${e.pop}</span> has both ε and <span class="conflict">${e.realInputs.join(',')}</span><br>`;
+        });
+      }
+      html += `<br><span class="info-item">→ Fix conflicts above, or switch to NPDA mode.</span>`;
+      detail.innerHTML = html;
+    }
+  } else { // npda
+    icon.textContent = '✓';
+    label.className = 'status-label ok';
+    label.textContent = 'Valid NPDA';
+    let html = '<span class="ok-item">All transition sets form a valid NPDA.</span><br>';
+    if (!isDPDA) {
+      if (conflicts.length > 0) {
+        html += `<span class="warn" style="color:var(--gold);">Nondeterministic on: `;
+        html += conflicts.map(c=>`${c}`).join(', ') + '</span><br>';
+      }
+      if (epsilonConflicts.length > 0) {
+        html += `<span style="color:var(--gold);">ε-nondeterminism in states: `;
+        html += epsilonConflicts.map(e=>e.state).join(', ') + '</span><br>';
+      }
+      html += `<span class="info-item">Note: this PDA cannot be made deterministic as-is.</span>`;
+    } else {
+      html += `<span class="info-item">This NPDA is also a valid DPDA.</span>`;
+    }
+    detail.innerHTML = html;
+  }
+}
+
+function detectPDAType() { analysePDA(); } // alias for legacy calls
+
+// ===== CONFIG =====
+function applyConfig() {
+  states = document.getElementById('states-input').value.split(',').map(s=>s.trim()).filter(Boolean);
+  startState = document.getElementById('start-state').value.trim();
+  acceptStates = document.getElementById('accept-states').value.split(',').map(s=>s.trim()).filter(Boolean);
+  initStack = document.getElementById('init-stack').value.trim() || 'Z';
+
+  ['t-from','t-to'].forEach(id => {
+    const sel = document.getElementById(id);
+    const prev = sel.value;
+    sel.innerHTML = states.map(s=>`<option value="${s}">${s}</option>`).join('');
+    if (states.includes(prev)) sel.value = prev;
+  });
+
+  resetSimulation();
+  renderDiagram();
+}
+
+// ===== TRANSITIONS =====
+function addTransition() {
+  const from = document.getElementById('t-from').value;
+  const to   = document.getElementById('t-to').value;
+  const inp  = document.getElementById('t-input').value.trim() || 'ε';
+  const pop  = document.getElementById('t-pop').value.trim()   || 'ε';
+  const push = document.getElementById('t-push').value.trim()  || 'ε';
+  if (!from || !to) return;
+  transitions.push({from, to, input:inp, pop, push});
+  renderTransitionList();
+  renderDiagram();
+  analysePDA();
+}
+
+function removeTransition(i) {
+  transitions.splice(i,1);
+  renderTransitionList();
+  renderDiagram();
+  analysePDA();
+}
+
+function renderTransitionList() {
+  const el = document.getElementById('transition-list');
+  document.getElementById('trans-count').textContent = transitions.length;
+  if (transitions.length === 0) {
+    el.innerHTML = '<div class="no-transitions">No transitions defined</div>';
+    return;
+  }
+  el.innerHTML = transitions.map((t,i) => `
+    <div class="transition-item" id="t-item-${i}">
+      <span class="t-from">${t.from}</span>
+      <span class="t-arrow">→</span>
+      <span class="t-to">${t.to}</span>
+      <span class="t-label">&nbsp;${t.input}, ${t.pop}/${t.push}</span>
+      <button class="btn btn-danger" onclick="removeTransition(${i})">✕</button>
+    </div>`).join('');
+}
+
+// ===== DIAGRAM =====
+function renderDiagram() {
+  const canvas = document.getElementById('states-canvas');
+  const svg = document.getElementById('transitions-svg');
+  canvas.querySelectorAll('.state-node').forEach(n=>n.remove());
+
+  const n = states.length;
+  const rect = canvas.getBoundingClientRect();
+  const W = rect.width || canvas.offsetWidth || 560;
+  const H = rect.height || canvas.offsetHeight || 230;
+  const cx=W/2, cy=H/2, r=Math.min(W,H)*0.35, nodeR=27;
+  const ns='http://www.w3.org/2000/svg';
+
+  nodePositions = {};
+  states.forEach((s,i) => {
+    const angle = (2*Math.PI*i/n) - Math.PI/2;
+    const x = n===1 ? cx : cx+r*Math.cos(angle);
+    const y = n===1 ? cy : cy+r*Math.sin(angle);
+    nodePositions[s] = {x,y};
+    const node = document.createElement('div');
+    node.className = 'state-node';
+    node.id = `node-${s}`;
+    node.textContent = s;
+    node.style.left = (x-nodeR)+'px';
+    node.style.top  = (y-nodeR)+'px';
+    if (s===startState) node.classList.add('start-state');
+    if (acceptStates.includes(s)) node.classList.add('accept-state');
+    canvas.appendChild(node);
+  });
+
+  svg.setAttribute('viewBox',`0 0 ${W} ${H}`);
+  while(svg.firstChild) svg.removeChild(svg.firstChild);
+
+  const defs = document.createElementNS(ns,'defs');
+  [['arrow-dim','#c4bbb0'],['arrow-active','#b8965a'],['arrow-start','#b8965a']].forEach(([id,color])=>{
+    const mk=document.createElementNS(ns,'marker');
+    mk.setAttribute('id',id); mk.setAttribute('markerWidth','7'); mk.setAttribute('markerHeight','7');
+    mk.setAttribute('refX','5'); mk.setAttribute('refY','3'); mk.setAttribute('orient','auto');
+    const p=document.createElementNS(ns,'path');
+    p.setAttribute('d','M0,0 L6,3 L0,6 Z'); p.setAttribute('fill',color);
+    mk.appendChild(p); defs.appendChild(mk);
+  });
+  svg.appendChild(defs);
+
+  const groups={};
+  transitions.forEach(t=>{
+    const key=`${t.from}__${t.to}`;
+    if(!groups[key]) groups[key]={from:t.from,to:t.to,labels:[]};
+    groups[key].labels.push(`${t.input},${t.pop}/${t.push}`);
+  });
+
+  Object.values(groups).forEach(g=>{
+    const p1=nodePositions[g.from], p2=nodePositions[g.to];
+    if(!p1||!p2) return;
+    const isSelf=g.from===g.to;
+    const pathEl=document.createElementNS(ns,'path');
+    pathEl.setAttribute('id',`edge-${g.from}-${g.to}`);
+    pathEl.setAttribute('stroke','#c4bbb0'); pathEl.setAttribute('stroke-width','1');
+    pathEl.setAttribute('fill','none'); pathEl.setAttribute('marker-end','url(#arrow-dim)');
+    const textEl=document.createElementNS(ns,'text');
+    textEl.setAttribute('fill','#8a8278'); textEl.setAttribute('font-size','8');
+    textEl.setAttribute('text-anchor','middle'); textEl.setAttribute('font-family','DM Mono,monospace');
+    textEl.textContent=g.labels.join(' | ');
+    if(isSelf){
+      const lx=p1.x,ly=p1.y-nodeR-26;
+      pathEl.setAttribute('d',`M${p1.x-12},${p1.y-nodeR} Q${lx-36},${ly-26} ${p1.x+12},${p1.y-nodeR}`);
+      textEl.setAttribute('x',lx); textEl.setAttribute('y',ly-8);
+    } else {
+      const dx=p2.x-p1.x,dy=p2.y-p1.y,len=Math.sqrt(dx*dx+dy*dy);
+      const ux=dx/len,uy=dy/len;
+      const x1=p1.x+ux*nodeR,y1=p1.y+uy*nodeR;
+      const x2=p2.x-ux*nodeR,y2=p2.y-uy*nodeR;
+      const mx=(x1+x2)/2-uy*18,my=(y1+y2)/2+ux*18;
+      pathEl.setAttribute('d',`M${x1},${y1} Q${mx},${my} ${x2},${y2}`);
+      textEl.setAttribute('x',mx); textEl.setAttribute('y',my-5);
+    }
+    svg.appendChild(pathEl); svg.appendChild(textEl);
+  });
+
+  const sp=nodePositions[startState];
+  if(sp){
+    const line=document.createElementNS(ns,'line');
+    line.setAttribute('x1',sp.x-nodeR-28); line.setAttribute('y1',sp.y);
+    line.setAttribute('x2',sp.x-nodeR-1);  line.setAttribute('y2',sp.y);
+    line.setAttribute('stroke','#b8965a'); line.setAttribute('stroke-width','1');
+    line.setAttribute('marker-end','url(#arrow-start)');
+    svg.appendChild(line);
+  }
+  updateNodeHighlight();
+}
+
+function updateNodeHighlight() {
+  states.forEach(s=>{
+    const node=document.getElementById(`node-${s}`);
+    if(!node) return;
+    node.classList.remove('current-state','reject-state');
+    node.classList.toggle('start-state', s===startState && s!==currentState);
+    node.classList.toggle('accept-state', acceptStates.includes(s));
+  });
+  if(currentState){
+    const node=document.getElementById(`node-${currentState}`);
+    if(node){node.classList.add('current-state'); node.classList.remove('start-state','accept-state');}
+  }
+}
+
+// ===== SIMULATION =====
+function computeSteps() {
+  const steps=[];
+  let st=startState, stk=[initStack], head=0;
+  const str=inputStr;
+  steps.push({state:st,stack:[...stk],head,op:'init',transition:null,desc:`Start: state=${st}, stack=[${stk.join(',')}]`});
+  for(let iter=0;iter<200;iter++){
+    const sym=head<str.length?str[head]:'ε';
+    const topStack=stk.length>0?stk[stk.length-1]:'ε';
+    let found=null;
+    for(const t of transitions){
+      if(t.from!==st) continue;
+      if((t.input===sym||t.input==='ε')&&(t.pop===topStack||t.pop==='ε')){found=t;break;}
+    }
+    if(!found) break;
+    let op='none';
+    if(found.pop!=='ε'&&stk.length>0) stk.pop();
+    if(found.push!=='ε'){ found.push.split('').reverse().forEach(c=>stk.push(c)); op='push'; }
+    else if(found.pop!=='ε') op='pop';
+    if(found.input!=='ε') head++;
+    st=found.to;
+    steps.push({state:st,stack:[...stk],head,op,transition:found,desc:`(${found.from}, ${found.input}, ${found.pop}) → (${found.to}, ${found.push})`});
+    if(head>=str.length&&acceptStates.includes(st)) break;
+  }
+  return steps;
+}
+
+function startSimulation() {
+  resetSimulation(false);
+  inputStr = document.getElementById('input-string').value;
+  simSteps = computeSteps();
+  simIndex = 0;
+  running = true;
+  document.getElementById('btn-start').disabled = true;
+  document.getElementById('btn-step').disabled = false;
+  document.getElementById('btn-auto').disabled = false;
+  document.getElementById('btn-back').disabled = true; // can't go back at step 0
+  renderTape();
+  applyStep(simSteps[0]);
+  log(0, simSteps[0].desc, 'log-move');
+}
+
+function stepSimulation() {
+  if (simIndex < simSteps.length - 1) {
+    simIndex++;
+    applyStep(simSteps[simIndex]);
+    log(simIndex, simSteps[simIndex].desc, 'log-move');
+    document.getElementById('btn-back').disabled = false;
+  }
+  if (simIndex === simSteps.length - 1) checkFinal();
+}
+
+function backStep() {
+  // Clear any final result
+  document.getElementById('result-banner').className = 'result-banner';
+  document.getElementById('btn-step').disabled = false;
+  // Remove reject highlight
+  states.forEach(s=>{
+    const node=document.getElementById(`node-${s}`);
+    if(node) node.classList.remove('reject-state');
+  });
+
+  if (simIndex > 0) {
+    simIndex--;
+    applyStep(simSteps[simIndex]);
+    // Remove last log entry
+    const logC = document.getElementById('log-container');
+    if (logC.lastChild) logC.removeChild(logC.lastChild);
+  }
+  if (simIndex === 0) {
+    document.getElementById('btn-back').disabled = true;
+  }
+}
+
+function toggleAuto() {
+  if(autoRunning){
+    clearInterval(autoTimer); autoRunning=false;
+    document.getElementById('btn-auto').textContent='Auto ⚡';
+  } else {
+    autoRunning=true;
+    document.getElementById('btn-auto').textContent='Pause ⏸';
+    const speed=2200-parseInt(document.getElementById('speed').value);
+    autoTimer=setInterval(()=>{
+      if(simIndex<simSteps.length-1){ stepSimulation(); }
+      else{ clearInterval(autoTimer); autoRunning=false; document.getElementById('btn-auto').textContent='Auto ⚡'; checkFinal(); }
+    }, speed);
+  }
+}
+
+function checkFinal() {
+  const last=simSteps[simSteps.length-1];
+  const accepted=acceptStates.includes(last.state)&&last.head>=inputStr.length;
+  const banner=document.getElementById('result-banner');
+  banner.className='result-banner '+(accepted?'accepted':'rejected');
+  banner.textContent=accepted?`✓  Accepted — "${inputStr}"`:` ✗  Rejected — "${inputStr}"`;
+  log(simIndex,accepted?'String ACCEPTED':'String REJECTED',accepted?'log-accept':'log-reject');
+  if(!accepted){
+    const node=document.getElementById(`node-${last.state}`);
+    if(node) node.classList.add('reject-state');
+  }
+  document.getElementById('btn-step').disabled=true;
+}
+
+function applyStep(step) {
+  currentState=step.state;
+  updateNodeHighlight();
+  renderStack(step.stack, step.op);
+  updateTapeHead(step.head);
+  highlightTransition(step.transition);
+}
+
+function resetSimulation(full=true) {
+  clearInterval(autoTimer); autoRunning=false; running=false;
+  simSteps=[]; simIndex=0; currentState=null; stack=[]; inputHead=0;
+  document.getElementById('btn-start').disabled=false;
+  document.getElementById('btn-step').disabled=true;
+  document.getElementById('btn-auto').disabled=true;
+  document.getElementById('btn-back').disabled=true;
+  document.getElementById('btn-auto').textContent='Auto ⚡';
+  document.getElementById('result-banner').className='result-banner';
+  document.getElementById('stack-op-badge').textContent='idle';
+  document.getElementById('stack-op-badge').className='stack-op-badge op-none';
+  document.getElementById('stack-top').textContent='—';
+  document.getElementById('stack-container').innerHTML='<div class="empty-state">empty</div>';
+  document.getElementById('stack-string').innerHTML='<span style="font-family:var(--serif);font-style:italic;color:var(--border2);font-size:12px;">empty</span>';
+  document.getElementById('log-container').innerHTML='<div class="log-entry"><span class="log-step">—</span><span class="log-text" style="font-style:italic;color:var(--muted);">Awaiting simulation…</span></div>';
+  document.getElementById('tape-display').innerHTML='<span style="font-family:var(--serif);font-style:italic;color:var(--muted);font-size:13px;">Enter a string above and press Run</span>';
+  document.querySelectorAll('.transition-item').forEach(el=>el.classList.remove('active-transition'));
+  updateNodeHighlight();
+}
+
+// ===== RENDER HELPERS =====
+function renderStack(stk, op) {
+  const container=document.getElementById('stack-container');
+  const badge=document.getElementById('stack-op-badge');
+  const topEl=document.getElementById('stack-top');
+  const strEl=document.getElementById('stack-string');
+
+  if(stk.length===0){
+    container.innerHTML='<div class="empty-state">empty</div>';
+    strEl.innerHTML='<span style="font-family:var(--serif);font-style:italic;color:var(--border2);font-size:12px;">empty</span>';
+    topEl.textContent='—';
+    badge.textContent=op==='pop'?'POP':'idle';
+    badge.className=`stack-op-badge ${op==='pop'?'op-pop':'op-none'}`;
+    return;
+  }
+
+  topEl.textContent=stk[stk.length-1];
+  badge.textContent=op==='push'?'PUSH':op==='pop'?'POP':'—';
+  badge.className=`stack-op-badge ${op==='push'?'op-push':op==='pop'?'op-pop':'op-none'}`;
+
+  // ── String view: bottom → top, top char highlighted ──
+  // stk[0] = bottom, stk[last] = top
+  strEl.innerHTML = stk.map((c,i)=>{
+    const isTop = i===stk.length-1;
+    const isNew = isTop && op==='push';
+    return `<span class="ss-char ${isTop?'ss-top':''} ${isNew?'ss-new':''}">${c}</span>`;
+  }).join('<span class="ss-arrow">·</span>');
+
+  // ── Cell view: top at top, bottom at bottom ──
+  container.innerHTML=[...stk].reverse().map((c,i)=>{
+    const isTop=i===0;
+    const animClass=isTop&&op==='push'?'push-anim':'';
+    return `<div class="stack-cell ${isTop?'top-cell':''} ${animClass}">${c}</div>`;
+  }).join('');
+}
+
+function renderTape() {
+  const display=document.getElementById('tape-display');
+  if(inputStr===''){display.innerHTML='<div class="tape-cell current">ε</div>';return;}
+  display.innerHTML=inputStr.split('').map((c,i)=>`<div class="tape-cell pending" id="tape-${i}">${c}</div>`).join('');
+}
+
+function updateTapeHead(head) {
+  document.querySelectorAll('.tape-cell').forEach((el,i)=>{
+    el.className='tape-cell '+(i<head?'processed':i===head?'current':'pending');
+  });
+}
+
+function highlightTransition(t) {
+  document.querySelectorAll('.transition-item').forEach(el=>el.classList.remove('active-transition'));
+  document.querySelectorAll('[id^="edge-"]').forEach(el=>{
+    el.setAttribute('stroke','#c4bbb0'); el.setAttribute('stroke-width','1'); el.setAttribute('marker-end','url(#arrow-dim)');
+  });
+  if(!t) return;
+  const idx=transitions.findIndex(x=>x.from===t.from&&x.to===t.to&&x.input===t.input&&x.pop===t.pop&&x.push===t.push);
+  if(idx>=0){const el=document.getElementById(`t-item-${idx}`);if(el)el.classList.add('active-transition');}
+  const edge=document.getElementById(`edge-${t.from}-${t.to}`);
+  if(edge){edge.setAttribute('stroke','#b8965a');edge.setAttribute('stroke-width','2');edge.setAttribute('marker-end','url(#arrow-active)');}
+}
+
+function log(step,text,cls=''){
+  const container=document.getElementById('log-container');
+  if(step===0) container.innerHTML='';
+  const entry=document.createElement('div');
+  entry.className=`log-entry ${cls}`;
+  entry.innerHTML=`<span class="log-step">step ${step}</span><span class="log-text">${text}</span>`;
+  container.appendChild(entry);
+  container.scrollTop=container.scrollHeight;
+}
+
+// ===== PRESETS =====
+function loadPreset(name) {
+  transitions=[];
+  document.querySelectorAll('.preset-btn').forEach(b=>b.classList.remove('active'));
+  const btn=document.getElementById(`preset-${name}`);
+  if(btn) btn.classList.add('active');
+
+  if(name==='anbn'){
+    document.getElementById('states-input').value='q0,q1,q2';
+    document.getElementById('start-state').value='q0';
+    document.getElementById('accept-states').value='q2';
+    document.getElementById('init-stack').value='Z';
+    document.getElementById('input-string').value='aabb';
+    transitions=[
+      {from:'q0',to:'q0',input:'a',pop:'Z',push:'AZ'},
+      {from:'q0',to:'q0',input:'a',pop:'A',push:'AA'},
+      {from:'q0',to:'q1',input:'b',pop:'A',push:'ε'},
+      {from:'q1',to:'q1',input:'b',pop:'A',push:'ε'},
+      {from:'q1',to:'q2',input:'ε',pop:'Z',push:'Z'},
+    ];
+  } else if(name==='palindrome'){
+    document.getElementById('states-input').value='q0,q1,q2';
+    document.getElementById('start-state').value='q0';
+    document.getElementById('accept-states').value='q2';
+    document.getElementById('init-stack').value='Z';
+    document.getElementById('input-string').value='abba';
+    transitions=[
+      {from:'q0',to:'q0',input:'a',pop:'Z',push:'AZ'},
+      {from:'q0',to:'q0',input:'b',pop:'Z',push:'BZ'},
+      {from:'q0',to:'q0',input:'a',pop:'A',push:'AA'},
+      {from:'q0',to:'q0',input:'b',pop:'B',push:'BB'},
+      {from:'q0',to:'q0',input:'a',pop:'B',push:'AB'},
+      {from:'q0',to:'q0',input:'b',pop:'A',push:'BA'},
+      {from:'q0',to:'q1',input:'ε',pop:'Z',push:'Z'},
+      {from:'q1',to:'q1',input:'a',pop:'A',push:'ε'},
+      {from:'q1',to:'q1',input:'b',pop:'B',push:'ε'},
+      {from:'q1',to:'q2',input:'ε',pop:'Z',push:'Z'},
+    ];
+  } else if(name==='balanced'){
+    document.getElementById('states-input').value='q0,q1';
+    document.getElementById('start-state').value='q0';
+    document.getElementById('accept-states').value='q1';
+    document.getElementById('init-stack').value='Z';
+    document.getElementById('input-string').value='(())';
+    transitions=[
+      {from:'q0',to:'q0',input:'(',pop:'Z',push:'(Z'},
+      {from:'q0',to:'q0',input:'(',pop:'(',push:'(('},
+      {from:'q0',to:'q0',input:')',pop:'(',push:'ε'},
+      {from:'q0',to:'q1',input:'ε',pop:'Z',push:'Z'},
+    ];
+  }
+
+  applyConfig();
+  renderTransitionList();
+  analysePDA();
+}
+
+window.addEventListener('resize', renderDiagram);
+window.addEventListener('DOMContentLoaded', ()=>{
+  requestAnimationFrame(()=>loadPreset('anbn'));
+});
+</script>
+</body>
+</html>
